@@ -95,7 +95,6 @@ public class CallActivity extends AppCompatActivity {
             // Initializam managerul
             voiceManager = new VoiceCallManager(this, serverIp, myUserId);
 
-            // Pornim apelul (UDP + Hole Punching)
             voiceManager.startCall(targetUserId, sessionKey);
 
             TextView txtStatus = findViewById(R.id.txtCallStatus);
