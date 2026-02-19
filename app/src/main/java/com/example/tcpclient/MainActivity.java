@@ -334,22 +334,24 @@ public class MainActivity extends AppCompatActivity {
         intent.putExtra("CHAT_ID", chat.getId());
         intent.putExtra("CHAT_NAME", chat.getName());
 
-        int myId = TcpConnection.getCurrentUserId();
-        int partnerId = 8;
-
-        // Presupun ca GroupChat are o lista de membri (IDs).
-        // Trebuie sa iteram prin ea si sa gasim ID-ul care NU este al nostru.
-//        if (chat.getMembers() != null) {
-//            for (Integer uid : chat.getMembers()) {
-//                if (uid != myId) {
-//                    partnerId = uid;
-//                    break; // L-am gasit pe celalalt
-//                }
-//            }
-//        }
-
-        // ATENTIE: Foloseste cheia "TARGET_USER_ID" ca sa o gaseasca ConversationActivity
-        intent.putExtra("TARGET_USER_ID", partnerId);
+//        int myId = TcpConnection.getCurrentUserId();
+//        //de rezolvat asta cu current id
+//        int partnerId = 8;
+//
+//
+//        // Presupun ca GroupChat are o lista de membri (IDs).
+//        // Trebuie sa iteram prin ea si sa gasim ID-ul care NU este al nostru.
+////        if (chat.getMembers() != null) {
+////            for (Integer uid : chat.getMembers()) {
+////                if (uid != myId) {
+////                    partnerId = uid;
+////                    break; // L-am gasit pe celalalt
+////                }
+////            }
+////        }
+//
+//        // ATENTIE: Foloseste cheia "TARGET_USER_ID" ca sa o gaseasca ConversationActivity
+//        intent.putExtra("TARGET_USER_ID", partnerId);
 
         startActivity(intent);
     }

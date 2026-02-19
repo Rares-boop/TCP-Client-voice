@@ -158,7 +158,6 @@ public class ConversationActivity extends AppCompatActivity {
                     }
                     break;
 
-                    //change edit message for plaintext
                 case EDIT_MESSAGE_BROADCAST:
                     ChatDtos.EditMessageDto editDto = gson.fromJson(packet.getPayload(), ChatDtos.EditMessageDto.class);
                     for (int i = 0; i < messages.size(); i++) {
@@ -186,6 +185,22 @@ public class ConversationActivity extends AppCompatActivity {
                             messages.remove(i);
                             messageAdapter.notifyDataSetChanged();
                             break;
+                        }
+                    }
+                    break;
+
+                case GET_CHAT_MEMBERS_RESPONSE:
+                    Type idListType = new TypeToken<List<Integer>>(){}.getType();
+                    List<Integer> memberIds = gson.fromJson(packet.getPayload(), idListType);
+
+                    if (memberIds != null) {
+                        int myId = TcpConnection.getCurrentUserId();
+                        for (Integer uid : memberIds) {
+                            if (uid != myId) {
+                                this.targetUserId = uid;
+                                Log.d("APP", "✅ Am descarcat ID partener pt apel: " + targetUserId);
+                                break;
+                            }
                         }
                     }
                     break;
@@ -249,6 +264,9 @@ public class ConversationActivity extends AppCompatActivity {
         if (currentChatId != -1) {
             NetworkPacket packet = new NetworkPacket(PacketType.ENTER_CHAT_REQUEST, TcpConnection.getCurrentUserId(), currentChatId);
             TcpConnection.sendPacket(packet);
+
+            NetworkPacket membersReq = new NetworkPacket(PacketType.GET_CHAT_MEMBERS_REQUEST, TcpConnection.getCurrentUserId(), currentChatId);
+            TcpConnection.sendPacket(membersReq);
         }
     }
 
@@ -339,12 +357,10 @@ public class ConversationActivity extends AppCompatActivity {
         intent.putExtra("USERNAME", chatName);
         intent.putExtra("MY_USER_ID", TcpConnection.getCurrentUserId()); // Folosim metoda statica
 
-        // Luam IP-ul dinamic din conexiunea TCP!
         try {
             String serverIp = TcpConnection.getSocket().getInetAddress().getHostAddress();
             intent.putExtra("SERVER_IP", serverIp);
         } catch (Exception e) {
-            // Fallback (daca pica socketul, desi n-ar trebui)
             intent.putExtra("SERVER_IP", "IP_UL_HARDCODAT_DACA_VREI");
             Toast.makeText(this, "Eroare IP Server!", Toast.LENGTH_SHORT).show();
         }

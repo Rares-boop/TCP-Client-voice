@@ -7,6 +7,9 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import javax.crypto.SecretKey;
 
+import chat.NetworkPacket;
+import chat.PacketType;
+
 public class CallActivity extends AppCompatActivity {
 
     private VoiceCallManager voiceManager;
@@ -65,6 +68,9 @@ public class CallActivity extends AppCompatActivity {
         if (voiceManager != null) {
             voiceManager.endCall();
         }
+
+        TcpConnection.sendPacket(new NetworkPacket(PacketType.CALL_END, TcpConnection.getCurrentUserId(),
+                targetUserId));
         // Aici ai putea trimite si un pachet TCP de CALL_END daca vrei sa fii elegant
         finish(); // Inchide activitatea si ne intoarce in chat
     }
