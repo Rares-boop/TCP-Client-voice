@@ -37,7 +37,7 @@ public class CallActivity extends AppCompatActivity {
         txtStatus.setText("Connecting...");
 
         FloatingActionButton btnEndCall = findViewById(R.id.btnEndCall);
-        btnEndCall.setOnClickListener(v -> hangUp());
+        btnEndCall.setOnClickListener(v -> closeCallScreen());
 
         // 2. Initializam Cheile si Managerul
         initVoiceCall(myUserId);
