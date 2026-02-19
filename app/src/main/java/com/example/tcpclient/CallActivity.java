@@ -43,6 +43,48 @@ public class CallActivity extends AppCompatActivity {
         initVoiceCall(myUserId);
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Spunem aplicatiei: "Cat timp ecranul de apel e in fata, EU ascult pachetele!"
+        com.example.tcpclient.TcpConnection.setPacketListener(this::handlePacketOnUI);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Cand se inchide ecranul, oprim ascultarea aici (o va prelua chat-ul inapoi)
+        com.example.tcpclient.TcpConnection.setPacketListener(null);
+    }
+
+    private void handlePacketOnUI(chat.NetworkPacket packet) {
+        runOnUiThread(() -> {
+            // DACA CELALALT A INCHIS APELUL (Call End)
+            if (packet.getType() == chat.PacketType.CALL_END) {
+                android.widget.Toast.makeText(this, "Apel terminat de partener.", android.widget.Toast.LENGTH_SHORT).show();
+                closeCallScreen();
+            }
+            // DACA CELALALT NE-A DAT REJECT (Call Deny)
+            else if (packet.getType() == chat.PacketType.CALL_DENY) {
+                android.widget.Toast.makeText(this, "Apel respins (Ocupat).", android.widget.Toast.LENGTH_SHORT).show();
+                closeCallScreen();
+            }
+            // (Optional) Daca vrei sa schimbi textul cand raspunde
+            else if (packet.getType() == chat.PacketType.CALL_ACCEPT) {
+                TextView txtStatus = findViewById(R.id.txtCallStatus);
+                txtStatus.setText("Connected");
+            }
+        });
+    }
+
+    // Metoda de curatare pe care o apelam ca sa iesim frumos
+    private void closeCallScreen() {
+        if (voiceManager != null) {
+            voiceManager.endCall();
+        }
+        finish(); // Iese din ecran
+    }
+
     private void initVoiceCall(int myUserId) {
         // AICI E TOATA SMECHERIA "HARDWARE BACKED":
         // Citim cheia o singura data cand se creeaza activitatea.
@@ -65,14 +107,11 @@ public class CallActivity extends AppCompatActivity {
     }
 
     private void hangUp() {
-        if (voiceManager != null) {
-            voiceManager.endCall();
-        }
+        // Tu ii zici serverului ca ai inchis
+        com.example.tcpclient.TcpConnection.sendPacket(new chat.NetworkPacket(chat.PacketType.CALL_END, com.example.tcpclient.TcpConnection.getCurrentUserId(), targetUserId));
 
-        TcpConnection.sendPacket(new NetworkPacket(PacketType.CALL_END, TcpConnection.getCurrentUserId(),
-                targetUserId));
-        // Aici ai putea trimite si un pachet TCP de CALL_END daca vrei sa fii elegant
-        finish(); // Inchide activitatea si ne intoarce in chat
+        // Apoi inchizi ecranul tau
+        closeCallScreen();
     }
 
     @Override
