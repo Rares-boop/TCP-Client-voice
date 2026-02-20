@@ -47,6 +47,32 @@ public class IncomingCallActivity extends AppCompatActivity {
         findViewById(R.id.btnDecline).setOnClickListener(v -> declineCall());
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Spunem aplicatiei: cat timp suna, asculta pachetele de pe retea!
+        com.example.tcpclient.TcpConnection.setPacketListener(this::handlePacketOnUI);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Cand ecranul dispare (am raspuns sau am respins), eliberam ascultatorul
+        com.example.tcpclient.TcpConnection.setPacketListener(null);
+    }
+
+    private void handlePacketOnUI(NetworkPacket packet) {
+        runOnUiThread(() -> {
+            // Daca cel care ne suna a apasat butonul rosu (End Call) inainte sa raspundem noi
+            if (packet.getType() == PacketType.CALL_END) {
+                android.widget.Toast.makeText(this, "Apel anulat.", android.widget.Toast.LENGTH_SHORT).show();
+
+                stopRinging(); // Oprim soneria si vibratia hardware instant
+                finish();      // Inchidem ecranul si ne intoarcem in chat
+            }
+        });
+    }
+
     private void startRinging() {
         try {
             // Sonerie default
