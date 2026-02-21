@@ -17,11 +17,9 @@ public class IncomingCallActivity extends AppCompatActivity {
 
     private Ringtone ringtone;
     private Vibrator vibrator;
-
-    // Date primite prin Intent de la TcpClient
     private int callerId;
     private String callerName;
-    private int chatId; // Avem nevoie de asta ca sa stim ce cheie folosim
+    private int chatId;
     private String serverIp;
 
     @Override
@@ -29,20 +27,16 @@ public class IncomingCallActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_incoming_call);
 
-        // 1. Luam datele
         callerId = getIntent().getIntExtra("CALLER_ID", -1);
         callerName = getIntent().getStringExtra("CALLER_NAME");
         chatId = getIntent().getIntExtra("CHAT_ID", -1);
-        serverIp = getIntent().getStringExtra("SERVER_IP"); // Important pentru CallActivity
+        serverIp = getIntent().getStringExtra("SERVER_IP");
 
-        // 2. Setam UI
         TextView txtName = findViewById(R.id.txtCallerName);
         txtName.setText(callerName != null ? callerName : "Unknown Caller");
 
-        // 3. Pornim SONERIA si VIBRATIA 🔔📳
         startRinging();
 
-        // 4. Butoane
         findViewById(R.id.btnAnswer).setOnClickListener(v -> answerCall());
         findViewById(R.id.btnDecline).setOnClickListener(v -> declineCall());
     }
@@ -50,40 +44,33 @@ public class IncomingCallActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Spunem aplicatiei: cat timp suna, asculta pachetele de pe retea!
         com.example.tcpclient.TcpConnection.setPacketListener(this::handlePacketOnUI);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        // Cand ecranul dispare (am raspuns sau am respins), eliberam ascultatorul
         com.example.tcpclient.TcpConnection.setPacketListener(null);
     }
 
     private void handlePacketOnUI(NetworkPacket packet) {
         runOnUiThread(() -> {
-            // Daca cel care ne suna a apasat butonul rosu (End Call) inainte sa raspundem noi
             if (packet.getType() == PacketType.CALL_END) {
                 android.widget.Toast.makeText(this, "Apel anulat.", android.widget.Toast.LENGTH_SHORT).show();
 
-                stopRinging(); // Oprim soneria si vibratia hardware instant
-                finish();      // Inchidem ecranul si ne intoarcem in chat
+                stopRinging();
+                finish();
             }
         });
     }
-
     private void startRinging() {
         try {
-            // Sonerie default
             Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
             ringtone = RingtoneManager.getRingtone(getApplicationContext(), notification);
             ringtone.play();
 
-            // Vibratii
             vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
             if (vibrator != null) {
-                // Vibreaza: 0s pauza, 1s vibreaza, 1s pauza... (Repeta de la index 0)
                 long[] pattern = {0, 1000, 1000};
                 vibrator.vibrate(pattern, 0);
             }
@@ -101,43 +88,29 @@ public class IncomingCallActivity extends AppCompatActivity {
         }
     }
 
-    // --- RASPUNS (VERDE) ---
     private void answerCall() {
         stopRinging();
-
-        // 1. Trimitem pachet TCP: CALL_ACCEPT
-        // (Asta ii zice serverului/celuilalt telefon ca am raspuns)
-        // TcpClient.getInstance().sendPacket(new NetworkPacket(PacketType.CALL_ACCEPT, myId, callerId));
-        // NOTA: Implementeaza trimiterea in TcpClient sau aici daca ai acces static.
         sendTcpResponse(PacketType.CALL_ACCEPT);
 
-        // 2. Deschidem CallActivity (Ecranul de vorbit)
         Intent intent = new Intent(this, CallActivity.class);
         intent.putExtra("TARGET_USER_ID", callerId);
         intent.putExtra("CHAT_ID", chatId);
         intent.putExtra("USERNAME", callerName);
         intent.putExtra("SERVER_IP", serverIp);
-        // intent.putExtra("MY_USER_ID", ...); // Daca iti trebuie
         intent.putExtra("MY_USER_ID", com.example.tcpclient.TcpConnection.getCurrentUserId());
 
         startActivity(intent);
-        finish(); // Inchidem ecranul de Incoming
+        finish();
     }
 
-    // --- RESPINS (ROSU) ---
     private void declineCall() {
         stopRinging();
-
-        // 1. Trimitem pachet TCP: CALL_DENY
         sendTcpResponse(PacketType.CALL_DENY);
 
-        // 2. Inchidem activitatea si ne intoarcem unde eram
         finish();
     }
 
     private void sendTcpResponse(PacketType type) {
-        // Trimitem pachet TCP catre cel care ne suna (callerId)
-        // Payload poate fi ID-ul nostru sau un mesaj simplu "OK"
         com.example.tcpclient.TcpConnection.sendPacket(
                 new NetworkPacket(type, com.example.tcpclient.TcpConnection.getCurrentUserId(), callerId)
         );
@@ -146,6 +119,6 @@ public class IncomingCallActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        stopRinging(); // Siguranta: sa nu sune la infinit daca iesi din aplicatie
+        stopRinging();
     }
 }

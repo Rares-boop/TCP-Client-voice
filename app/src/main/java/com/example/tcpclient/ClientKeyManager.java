@@ -15,8 +15,6 @@ import chat.CryptoHelper;
 
 public class ClientKeyManager {
     private static final String PREF_FILE_NAME = "secure_chat_keys";
-
-    // Constante pentru cheile tale Post-Quantum (Identitatea ta)
     private static final String KEY_IK_PUB = "MY_IDENTITY_PUB_DILITHIUM";
     private static final String KEY_IK_PRIV = "MY_IDENTITY_PRIV_DILITHIUM";
     private static final String KEY_SPK_PUB = "MY_PREKEY_PUB_KYBER";
@@ -26,7 +24,6 @@ public class ClientKeyManager {
 
     public ClientKeyManager(Context context) {
         try {
-            // Folosim MasterKey pentru criptare hardware-backed (Foarte sigur!)
             MasterKey masterKey = new MasterKey.Builder(context)
                     .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                     .build();
@@ -41,14 +38,9 @@ public class ClientKeyManager {
 
         } catch (GeneralSecurityException | IOException e) {
             e.printStackTrace();
-            // Fallback pe shared prefs simplu daca telefonul e vechi si nu suporta criptare
             this.securePrefs = context.getSharedPreferences(PREF_FILE_NAME, Context.MODE_PRIVATE);
         }
     }
-
-    // =============================================================
-    // PARTEA 1: CHEI SESIUNE CHAT (AES - Ce aveai tu deja)
-    // =============================================================
 
     public boolean hasKey(int chatId) {
         return securePrefs.contains(String.valueOf(chatId));
@@ -79,14 +71,6 @@ public class ClientKeyManager {
         }
     }
 
-    // =============================================================
-    // PARTEA 2: NOILE METODE PENTRU POST-QUANTUM (Dilithium + Kyber)
-    // =============================================================
-
-    /**
-     * Salvam Identitatea noastra Post-Quantum.
-     * Astea sunt generate la Register si le tinem aici ca sa putem decripta mesaje oricand.
-     */
     public void saveMyIdentityKeys(String ikPub, String ikPriv, String spkPub, String spkPriv) {
         securePrefs.edit()
                 .putString(KEY_IK_PUB, ikPub)
@@ -96,12 +80,9 @@ public class ClientKeyManager {
                 .apply();
     }
 
-    // Verificam daca avem identitate generata (pentru Login vs Register check)
     public boolean hasIdentity() {
         return securePrefs.contains(KEY_IK_PRIV) && securePrefs.contains(KEY_SPK_PRIV);
     }
-
-    // --- GETTERS (Le folosim cand primim mesaje sau semnam chestii) ---
 
     public String getMyIdentityPublicKey() {
         return securePrefs.getString(KEY_IK_PUB, null);
@@ -119,7 +100,6 @@ public class ClientKeyManager {
         return securePrefs.getString(KEY_SPK_PRIV, null);
     }
 
-    // Sterge tot (la Logout)
     public void clearAll() {
         securePrefs.edit().clear().apply();
     }

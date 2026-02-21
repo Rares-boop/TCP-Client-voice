@@ -1,7 +1,7 @@
 package com.example.tcpclient;
 
 import android.Manifest;
-import android.content.Context; // <--- IMPORTANT
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.media.AudioFormat;
 import android.media.AudioManager;
@@ -10,8 +10,7 @@ import android.media.AudioTrack;
 import android.media.MediaRecorder;
 import android.util.Log;
 
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat; // <--- IMPORTANT
+import androidx.core.content.ContextCompat;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -26,7 +25,7 @@ import javax.crypto.spec.GCMParameterSpec;
 public class VoiceCallManager {
     private static final int SERVER_PORT = 15556;
     private static final int SAMPLE_RATE = 16000;
-    private static final int CHANNEL_CONFIG_IN = AudioFormat.CHANNEL_IN_MONO;   // Pt Microfon
+    private static final int CHANNEL_CONFIG_IN = AudioFormat.CHANNEL_IN_MONO;
     private static final int CHANNEL_CONFIG_OUT = AudioFormat.CHANNEL_OUT_MONO;
     private static final int AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
 
@@ -38,12 +37,10 @@ public class VoiceCallManager {
     private DatagramSocket udpSocket;
     private Thread sendThread;
     private Thread receiveThread;
-
-    // --- MODIFICARE 1: Avem nevoie de Context pentru permisiuni ---
     private Context context;
 
     public VoiceCallManager(Context context, String serverIp, int myUserId) {
-        this.context = context; // Il salvam
+        this.context = context;
         this.serverIp = serverIp;
         this.myUserId = myUserId;
     }
@@ -99,13 +96,11 @@ public class VoiceCallManager {
     private void startSending() {
         sendThread = new Thread(() -> {
             int minBuf = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG_IN, AUDIO_FORMAT);
-            // Buffer mic (20-40ms) pentru latenta mica
             byte[] audioBuffer = new byte[640];
 
             AudioRecord recorder = null;
 
             try {
-                // --- MODIFICARE 2: Verificam permisiunea folosind Contextul ---
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                     Log.e("VoiceCall", "❌ NU AI PERMISIUNE DE MICROFON!");
                     return;
@@ -149,7 +144,6 @@ public class VoiceCallManager {
             byte[] receiveBuffer = new byte[4096];
 
             try {
-//                speaker = new AudioTrack(AudioManager.STREAM_VOICE_CALL, SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT, minBuf, AudioTrack.MODE_STREAM);
                 speaker = new AudioTrack(AudioManager.STREAM_MUSIC, SAMPLE_RATE, CHANNEL_CONFIG_OUT, AUDIO_FORMAT, minBuf, AudioTrack.MODE_STREAM);
                 speaker.play();
 
@@ -165,7 +159,6 @@ public class VoiceCallManager {
                     byte[] pcmAudio = decryptUDP(ramSessionKey, encryptedData);
 
                     if (pcmAudio != null) {
-                        // Log.d("VoiceCall", "🔊 Primit sunet: " + pcmAudio.length + " bytes"); // Decomenteaza daca vrei spam
                         speaker.write(pcmAudio, 0, pcmAudio.length);
                     } else {
                         Log.e("VoiceCall", "❌ Decriptare Esuata! Cheile nu se potrivesc.");
@@ -181,8 +174,6 @@ public class VoiceCallManager {
         });
         receiveThread.start();
     }
-
-    // --- METODELE TALE DE CRIPTARE ---
     public static byte[] encryptUDP(SecretKey key, byte[] audioData) {
         try {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
@@ -197,7 +188,6 @@ public class VoiceCallManager {
             return byteBuffer.array();
         } catch (Exception e) { return null; }
     }
-
     public static byte[] decryptUDP(SecretKey key, byte[] encryptedPacket) {
         try {
             if (encryptedPacket.length < 12) return null;

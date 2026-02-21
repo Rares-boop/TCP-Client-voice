@@ -99,7 +99,6 @@ public class ConversationActivity extends AppCompatActivity {
 
     }
 
-
     @Override
     protected void onResume() {
         super.onResume();
@@ -352,10 +351,10 @@ public class ConversationActivity extends AppCompatActivity {
         }
 
         Intent intent = new Intent(ConversationActivity.this, CallActivity.class);
-        intent.putExtra("TARGET_USER_ID", targetUserId); // Acum e definit
+        intent.putExtra("TARGET_USER_ID", targetUserId);
         intent.putExtra("CHAT_ID", currentChatId);
         intent.putExtra("USERNAME", chatName);
-        intent.putExtra("MY_USER_ID", TcpConnection.getCurrentUserId()); // Folosim metoda statica
+        intent.putExtra("MY_USER_ID", TcpConnection.getCurrentUserId());
 
         try {
             String serverIp = TcpConnection.getSocket().getInetAddress().getHostAddress();
@@ -365,7 +364,6 @@ public class ConversationActivity extends AppCompatActivity {
             Toast.makeText(this, "Eroare IP Server!", Toast.LENGTH_SHORT).show();
         }
 
-        // Trimitem CALL_REQUEST prin TCP ca sa sune telefonul celuilalt
         NetworkPacket callRequest = new NetworkPacket(PacketType.CALL_REQUEST, TcpConnection.getCurrentUserId(), targetUserId);
         TcpConnection.sendPacket(callRequest);
 
