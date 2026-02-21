@@ -26,6 +26,7 @@ public class LoginActivity extends AppCompatActivity {
     private ConfigReader config;
     private SharedPreferences preferences;
     private final Gson gson = new Gson();
+    private static final String TAG = "LoginActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,12 +64,12 @@ public class LoginActivity extends AppCompatActivity {
         String password = passwordField.getText().toString().trim();
 
         if (username.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "Te rog introdu user si parola", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Please enter username and password", Toast.LENGTH_SHORT).show();
             return;
         }
 
         setButtonsEnabled(false);
-        Toast.makeText(this, "Se conecteaza...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Connecting...", Toast.LENGTH_SHORT).show();
 
         new Thread(() -> {
             try {
@@ -88,17 +89,17 @@ public class LoginActivity extends AppCompatActivity {
                     if (responsePacket != null && responsePacket.getType() == PacketType.LOGIN_RESPONSE) {
                         handleLoginResponse(responsePacket, username, password, checkBox.isChecked());
                     } else {
-                        showSnackbar("Raspuns invalid de la server");
+                        showSnackbar("Invalid response from server");
                         TcpConnection.close();
                     }
                 });
 
             } catch (Exception e) {
-                e.printStackTrace();
+                Log.e(TAG, "Connection error during login", e);
                 TcpConnection.close();
                 runOnUiThread(() -> {
                     setButtonsEnabled(true);
-                    showSnackbar("Eroare Conexiune: " + e.getMessage());
+                    showSnackbar("Connection Error: " + e.getMessage());
                 });
             }
         }).start();
@@ -135,7 +136,8 @@ public class LoginActivity extends AppCompatActivity {
                 TcpConnection.close();
             }
         } catch (Exception e) {
-            showSnackbar("Eroare procesare login: " + e.getMessage());
+            Log.e(TAG, "Error processing login response", e);
+            showSnackbar("Login processing error: " + e.getMessage());
         }
     }
 
@@ -172,11 +174,14 @@ public class LoginActivity extends AppCompatActivity {
                                 finish();
                                 return;
                             }
-                        } catch (Exception e) {}
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to parse auto-login response", e);
+                        }
                     }
                     handleAutoLoginFail();
                 });
             } catch (Exception e) {
+                Log.e(TAG, "Network error during auto-login", e);
                 runOnUiThread(this::handleAutoLoginFail);
             }
         }).start();
@@ -184,7 +189,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private void handleAutoLoginFail() {
         TcpConnection.close();
-        Toast.makeText(this, "Auto-login esuat.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Auto-login failed.", Toast.LENGTH_SHORT).show();
         setButtonsEnabled(true);
     }
 
@@ -205,3 +210,4 @@ public class LoginActivity extends AppCompatActivity {
                 .show();
     }
 }
+

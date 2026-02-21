@@ -5,6 +5,8 @@ import android.content.Intent;
 import android.util.Base64;
 import android.util.Log;
 
+import com.google.gson.Gson;
+
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import java.io.BufferedReader;
@@ -18,15 +20,14 @@ import java.security.Security;
 
 import javax.crypto.SecretKey;
 
+import chat.ChatDtos;
 import chat.CryptoHelper;
-import chat.GroupChat;
 import chat.NetworkPacket;
 import chat.PacketType;
 import chat.User;
 
 public class TcpConnection {
     public static Socket socket;
-
     private static User currentUser;
     private static int currentUserId;
 
@@ -37,11 +38,9 @@ public class TcpConnection {
         Security.removeProvider("BC");
         Security.addProvider(new BouncyCastleProvider());
     }
-
     public interface PacketListener {
         void onPacketReceived(NetworkPacket packet);
     }
-
     private static PacketListener currentListener;
     private static Thread readingThread;
     private static volatile boolean isReading = false;
@@ -93,55 +92,29 @@ public class TcpConnection {
         if (appContext == null) return;
 
         int callerId = packet.getSenderId();
-        String callerName = "User " + callerId; // Default
+        String callerName = "User " + callerId;
 
-        // --- FIX CRITIC: Cautam CHAT_ID-ul asociat acestui user ---
-        int foundChatId = 13;
+        ChatDtos.CallRequestDto incomingDto = new Gson().fromJson(packet.getPayload(), ChatDtos.CallRequestDto.class);
+        int foundChatId = incomingDto.chatId;
 
-        // 1. Luam lista de chat-uri din cache
-//        List<GroupChat> chats = LocalStorage.getCurrentUserGroupChats();
-//
-//        if (chats != null) {
-//            for (GroupChat chat : chats) {
-//                // Aici e logica: Daca stim membrii, cautam ID-ul.
-//                // Daca nu stim membrii (serverul nu ii trimite), incercam dupa nume (ChatName == UserName).
-//
-//                // Varianta A: Avem lista de membri
-//                if (chat.getMembers() != null && chat.getMembers().contains(callerId)) {
-//                    foundChatId = chat.getId();
-//                    callerName = chat.getName(); // Numele chatului e numele userului
-//                    break;
-//                }
-//
-//                // Varianta B: Nu avem membri, dar stim ca Nume Chat == Nume User
-//                // (Asta e un fallback, poate nu merge daca userul si-a schimbat numele)
-//                // Dar pentru testul tau e ok.
-//            }
-//        }
-
-        // LOG DE DEBUG SA VEZI DACA IL GASESTE
         Log.d("TCP", "📞 Incoming Call de la " + callerId + ". Chat ID gasit: " + foundChatId);
 
-        // Luam IP-ul serverului
-        String serverIp = "127.0.0.1"; // Fallback
+        String serverIp = "127.0.0.1";
         try {
             if (socket != null) serverIp = socket.getInetAddress().getHostAddress();
         } catch (Exception e) {}
 
-        // Facem Intent-ul
         Intent intent = new Intent(appContext, IncomingCallActivity.class);
+
         intent.putExtra("CALLER_ID", callerId);
         intent.putExtra("CALLER_NAME", callerName);
 
-        // ACUM TRIMITEM CHAT ID-ul CORECT!
         intent.putExtra("CHAT_ID", foundChatId);
-
         intent.putExtra("SERVER_IP", serverIp);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         appContext.startActivity(intent);
     }
-
 
     public static void stopReading() {
         isReading = false;
@@ -160,14 +133,11 @@ public class TcpConnection {
             throw new Exception("Handshake Server Esuat!");
         }
     }
-
     private static PrintWriter out;
     private static BufferedReader in;
-
     private static boolean performHandshake() {
         try {
             Log.d("TCP", "Start Handshake...");
-
 
             String jsonHello = in.readLine();
             if(jsonHello==null){
@@ -183,19 +153,15 @@ public class TcpConnection {
                 byte[] serverKyberBytes = Base64.decode(parts[0], Base64.NO_WRAP);
                 byte[] serverECBytes    = Base64.decode(parts[1], Base64.NO_WRAP);
 
-                // 1. Kyber
                 PublicKey serverKyberPub = CryptoHelper.decodeKyberPublicKey(serverKyberBytes);
                 CryptoHelper.KEMResult kyberRes = CryptoHelper.encapsulate(serverKyberPub);
 
-                // 2. ECDH
                 KeyPair myECPair = CryptoHelper.generateECKeys();
                 PublicKey serverECPub = CryptoHelper.decodeECPublicKey(serverECBytes);
                 byte[] ecSecret = CryptoHelper.doECDH(myECPair.getPrivate(), serverECPub);
 
-                // 3. Combine (KDF)
                 sessionKey = CryptoHelper.combineSecrets(ecSecret, kyberRes.aesKey.getEncoded());
 
-                // 4. Raspuns: KyberCipher:MyECPub
                 String kyberCipherB64 = Base64.encodeToString(kyberRes.wrappedKey, Base64.NO_WRAP);
                 String myECPubB64     = Base64.encodeToString(myECPair.getPublic().getEncoded(), Base64.NO_WRAP);
 
@@ -287,10 +253,6 @@ public class TcpConnection {
 
     public static void setCurrentUser(User user) {
         currentUser = user;
-    }
-
-    public static User getCurrentUser() {
-        return currentUser;
     }
 
     public static void setCurrentUserId(int id) {

@@ -1,12 +1,15 @@
 package com.example.tcpclient;
 
 import android.content.Context;
+import android.util.Log;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
 public class ConfigReader {
-    private Properties properties;
+    private final Properties properties;
+    private static final String TAG = "ConfigReader";
 
     public ConfigReader(Context context) {
         properties = new Properties();
@@ -14,7 +17,7 @@ public class ConfigReader {
             InputStream inputStream = context.getAssets().open("server_config.properties");
             properties.load(inputStream);
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Failed to load server_config.properties", e);
         }
     }
 

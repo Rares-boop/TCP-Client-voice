@@ -3,8 +3,8 @@ package com.example.tcpclient;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.EditText;
@@ -21,7 +21,6 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 
 import java.security.KeyPair;
-import java.util.Base64;
 
 import chat.ChatDtos;
 import chat.CryptoHelper;
@@ -33,6 +32,7 @@ public class RegisterActivity extends AppCompatActivity {
     private ConfigReader config;
     private SharedPreferences preferences;
     private final Gson gson = new Gson();
+    private static final String TAG = "RegisterActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,6 +51,7 @@ public class RegisterActivity extends AppCompatActivity {
         try {
             preferences = SecureStorage.getEncryptedPrefs(getApplicationContext());
         } catch (Exception e) {
+            Log.e(TAG, "Failed to load encrypted preferences, falling back to standard", e);
             preferences = getSharedPreferences("ChatPrefs", MODE_PRIVATE);
         }
     }
@@ -66,16 +67,16 @@ public class RegisterActivity extends AppCompatActivity {
         String confirmedPassword = confirmedPasswordField.getText().toString().trim();
 
         if (username.isEmpty() || password.isEmpty() || confirmedPassword.isEmpty()) {
-            Toast.makeText(this, "Completeaza toate campurile!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Please fill in all fields!", Toast.LENGTH_SHORT).show();
             return;
         }
 
         if (!password.equals(confirmedPassword)) {
-            Toast.makeText(this, "Parolele nu coincid!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Passwords do not match!", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        Toast.makeText(this, "Inregistrare...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Registering...", Toast.LENGTH_SHORT).show();
         view.setEnabled(false);
 
         new Thread(() -> {
@@ -97,16 +98,16 @@ public class RegisterActivity extends AppCompatActivity {
                     if (responsePacket != null && responsePacket.getType() == PacketType.REGISTER_RESPONSE) {
                         handleRegisterResponse(responsePacket, username, password, checkBox.isChecked());
                     } else {
-                        showSnackbar("Eroare server: Raspuns invalid.");
+                        showSnackbar("Server Error: Invalid response.");
                     }
                 });
 
             } catch (Exception e) {
-                e.printStackTrace();
+                Log.e(TAG, "Connection error during registration", e);
                 TcpConnection.close();
                 runOnUiThread(() -> {
                     view.setEnabled(true);
-                    showSnackbar("Eroare Conexiune: " + e.getMessage());
+                    showSnackbar("Connection Error: " + e.getMessage());
                 });
             }
         }).start();
@@ -133,7 +134,7 @@ public class RegisterActivity extends AppCompatActivity {
                     }
                     editor.apply();
 
-                    Toast.makeText(this, "Cont creat cu succes!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Account created successfully!", Toast.LENGTH_SHORT).show();
 
                     new Thread(() -> {
                         try {
@@ -159,19 +160,19 @@ public class RegisterActivity extends AppCompatActivity {
                             ChatDtos.PublishKeysDto dto = new ChatDtos.PublishKeysDto(ikPub, spkPub, signatureBase64);
                             TcpConnection.sendPacket(new NetworkPacket(PacketType.PUBLISH_KEYS, user.getId(), dto));
 
-                            System.out.println("✅ Chei generate si trimise!");
+                            Log.i(TAG, "Keys generated and sent!");
 
                             runOnUiThread(() -> {
-                                Toast.makeText(this, "Cont Securizat Activat!", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(this, "Secure Account Activated!", Toast.LENGTH_SHORT).show();
                                 Intent intent = new Intent(RegisterActivity.this, MainActivity.class);
                                 startActivity(intent);
                                 finish();
                             });
 
                         } catch (Exception e) {
-                            e.printStackTrace();
+                            Log.e(TAG, "Critical error generating keys", e);
                             runOnUiThread(() -> {
-                                showSnackbar("Eroare critica la generarea cheilor: " + e.getMessage());
+                                showSnackbar("Critical error generating keys: " + e.getMessage());
                             });
                         }
                     }).start();
@@ -185,7 +186,8 @@ public class RegisterActivity extends AppCompatActivity {
                 ((EditText)findViewById(R.id.editTextTextPassword3)).setText("");
             }
         } catch (Exception e) {
-            showSnackbar("Eroare procesare raspuns server.");
+            Log.e(TAG, "Error processing register response", e);
+            showSnackbar("Error processing server response.");
         }
     }
 
@@ -197,3 +199,4 @@ public class RegisterActivity extends AppCompatActivity {
         ).setBackgroundTint(Color.RED).setTextColor(Color.WHITE).show();
     }
 }
+

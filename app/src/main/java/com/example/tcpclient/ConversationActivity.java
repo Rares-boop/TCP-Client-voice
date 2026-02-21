@@ -83,6 +83,8 @@ public class ConversationActivity extends AppCompatActivity {
 
         this.targetUserId = intent.getIntExtra("TARGET_USER_ID", -1);
 
+        Log.e("MUIE", "CHAT ID FROM MAIN ACTIVITY " + currentChatId);
+
         TextView txtChatName = findViewById(R.id.txtChatName);
         if(chatName != null) txtChatName.setText(chatName);
 
@@ -364,7 +366,8 @@ public class ConversationActivity extends AppCompatActivity {
             Toast.makeText(this, "Eroare IP Server!", Toast.LENGTH_SHORT).show();
         }
 
-        NetworkPacket callRequest = new NetworkPacket(PacketType.CALL_REQUEST, TcpConnection.getCurrentUserId(), targetUserId);
+        ChatDtos.CallRequestDto callDto = new ChatDtos.CallRequestDto(targetUserId, currentChatId);
+        NetworkPacket callRequest = new NetworkPacket(PacketType.CALL_REQUEST, TcpConnection.getCurrentUserId(), callDto);
         TcpConnection.sendPacket(callRequest);
 
         startActivity(intent);
