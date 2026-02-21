@@ -28,16 +28,14 @@ public class VoiceCallManager {
     private static final int CHANNEL_CONFIG_IN = AudioFormat.CHANNEL_IN_MONO;
     private static final int CHANNEL_CONFIG_OUT = AudioFormat.CHANNEL_OUT_MONO;
     private static final int AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
-
     private boolean isCallActive = false;
-    private String serverIp;
-    private int myUserId;
+    private final String serverIp;
+    private final int myUserId;
     private int targetUserId;
     private SecretKey ramSessionKey;
     private DatagramSocket udpSocket;
-    private Thread sendThread;
-    private Thread receiveThread;
-    private Context context;
+    private final Context context;
+    private static final String TAG = "VoiceCallManager";
 
     public VoiceCallManager(Context context, String serverIp, int myUserId) {
         this.context = context;
@@ -55,13 +53,12 @@ public class VoiceCallManager {
         new Thread(() -> {
             try {
                 udpSocket = new DatagramSocket();
-                Log.d("VoiceCall", "🚀 Pornire apel UDP catre " + serverIp + ":" + SERVER_PORT);
+                Log.d(TAG, "Starting UDP call to " + serverIp + ":" + SERVER_PORT);
                 sendHolePunch();
                 startSending();
                 startReceiving();
             } catch (Exception e) {
-                e.printStackTrace();
-                Log.e("VoiceCall", "Eroare la pornire apel: " + e.getMessage());
+                Log.e(TAG, "Error starting call: " + e.getMessage());
                 endCall();
             }
         }).start();
@@ -75,7 +72,7 @@ public class VoiceCallManager {
             udpSocket = null;
         }
         ramSessionKey = null;
-        Log.d("VoiceCall", "🛑 Apel terminat.");
+        Log.d(TAG, "Call ended.");
     }
 
     private void sendHolePunch() {
@@ -90,11 +87,11 @@ public class VoiceCallManager {
                 if (udpSocket != null) udpSocket.send(packet);
                 Thread.sleep(50);
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) { Log.e(TAG, "Hole punch failed: " + e.getMessage()); }
     }
 
     private void startSending() {
-        sendThread = new Thread(() -> {
+        Thread sendThread = new Thread(() -> {
             int minBuf = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG_IN, AUDIO_FORMAT);
             byte[] audioBuffer = new byte[640];
 
@@ -102,7 +99,7 @@ public class VoiceCallManager {
 
             try {
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                    Log.e("VoiceCall", "❌ NU AI PERMISIUNE DE MICROFON!");
+                    Log.e(TAG, "Microphone permission NOT GRANTED!");
                     return;
                 }
 
@@ -127,10 +124,10 @@ public class VoiceCallManager {
                     }
                 }
             } catch (Exception e) {
-                Log.e("VoiceCall", "Eroare Microfon: " + e.getMessage());
+                Log.e(TAG, "Microphone recording error: " + e.getMessage());
             } finally {
                 if (recorder != null) {
-                    try { recorder.stop(); recorder.release(); } catch (Exception e) {}
+                    try { recorder.stop(); recorder.release(); } catch (Exception ignored) {}
                 }
             }
         });
@@ -138,7 +135,7 @@ public class VoiceCallManager {
     }
 
     private void startReceiving() {
-        receiveThread = new Thread(() -> {
+        Thread receiveThread = new Thread(() -> {
             int minBuf = AudioTrack.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG_OUT, AUDIO_FORMAT);
             AudioTrack speaker = null;
             byte[] receiveBuffer = new byte[4096];
@@ -161,14 +158,14 @@ public class VoiceCallManager {
                     if (pcmAudio != null) {
                         speaker.write(pcmAudio, 0, pcmAudio.length);
                     } else {
-                        Log.e("VoiceCall", "❌ Decriptare Esuata! Cheile nu se potrivesc.");
+                        Log.e(TAG, "Decryption failed! Keys might be mismatched.");
                     }
                 }
             } catch (Exception e) {
-                if (isCallActive) Log.e("VoiceCall", "Eroare Difuzor: " + e.getMessage());
+                if (isCallActive) Log.e(TAG, "Speaker error: " + e.getMessage());
             } finally {
                 if (speaker != null) {
-                    try { speaker.stop(); speaker.release(); } catch (Exception e) {}
+                    try { speaker.stop(); speaker.release(); } catch (Exception ignored) {}
                 }
             }
         });
