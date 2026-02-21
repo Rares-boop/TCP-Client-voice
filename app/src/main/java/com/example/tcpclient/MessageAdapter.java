@@ -105,9 +105,9 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
 
     private String getFormattedDate(long timestamp) {
         if (DateUtils.isToday(timestamp)) {
-            return "Azi";
+            return "Today";
         } else if (DateUtils.isToday(timestamp + DateUtils.DAY_IN_MILLIS)) {
-            return "Ieri";
+            return "Yesterday";
         } else {
             SimpleDateFormat sdf = new SimpleDateFormat("dd MMM yyyy", Locale.getDefault());
             return sdf.format(new Date(timestamp));
@@ -119,7 +119,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
         return messages.size();
     }
 
-    static class MessageViewHolder extends RecyclerView.ViewHolder {
+    public static class MessageViewHolder extends RecyclerView.ViewHolder {
         TextView messageText;
         TextView messageTime;
         TextView dateHeader;

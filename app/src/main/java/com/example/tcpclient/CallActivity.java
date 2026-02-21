@@ -1,5 +1,6 @@
 package com.example.tcpclient;
 
+import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
@@ -7,16 +8,13 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import javax.crypto.SecretKey;
 
-import chat.NetworkPacket;
-import chat.PacketType;
-
 public class CallActivity extends AppCompatActivity {
-
     private VoiceCallManager voiceManager;
     private int targetUserId;
     private int currentChatId;
     private String serverIp;
 
+    @SuppressLint("SetTextI18n")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -52,14 +50,15 @@ public class CallActivity extends AppCompatActivity {
         com.example.tcpclient.TcpConnection.setPacketListener(null);
     }
 
+    @SuppressLint("SetTextI18n")
     private void handlePacketOnUI(chat.NetworkPacket packet) {
         runOnUiThread(() -> {
             if (packet.getType() == chat.PacketType.CALL_END) {
-                android.widget.Toast.makeText(this, "Apel terminat de partener.", android.widget.Toast.LENGTH_SHORT).show();
+                android.widget.Toast.makeText(this, "Call ended by partner.", android.widget.Toast.LENGTH_SHORT).show();
                 closeCallScreen();
             }
             else if (packet.getType() == chat.PacketType.CALL_DENY) {
-                android.widget.Toast.makeText(this, "Apel respins (Ocupat).", android.widget.Toast.LENGTH_SHORT).show();
+                android.widget.Toast.makeText(this, "Call declined (Busy).", android.widget.Toast.LENGTH_SHORT).show();
                 closeCallScreen();
             }
             else if (packet.getType() == chat.PacketType.CALL_ACCEPT) {
@@ -75,6 +74,7 @@ public class CallActivity extends AppCompatActivity {
         finish();
     }
 
+    @SuppressLint("SetTextI18n")
     private void initVoiceCall(int myUserId) {
         ClientKeyManager keyManager = new ClientKeyManager(this);
         SecretKey sessionKey = keyManager.getKey(currentChatId);
@@ -84,7 +84,7 @@ public class CallActivity extends AppCompatActivity {
             voiceManager.startCall(targetUserId, sessionKey);
 
             TextView txtStatus = findViewById(R.id.txtCallStatus);
-            txtStatus.setText("Connected (Encrypted)");
+            txtStatus.setText("Connected");
         } else {
             hangUp();
         }

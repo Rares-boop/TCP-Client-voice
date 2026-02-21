@@ -14,12 +14,10 @@ import java.util.List;
 import chat.GroupChat;
 
 public class ConversationAdapter extends RecyclerView.Adapter<ConversationAdapter.ConversationViewHolder> {
-
     private final Context context;
     private List<GroupChat> conversations;
     private final OnConversationClickListener listener;
     private boolean enabled = true;
-
     private final OnConversationLongClickListener longClickListener;
 
     public interface OnConversationClickListener {
@@ -54,7 +52,7 @@ public class ConversationAdapter extends RecyclerView.Adapter<ConversationAdapte
     public void onBindViewHolder(@NonNull ConversationViewHolder holder, int position) {
         GroupChat chat = conversations.get(position);
         holder.groupName.setText(chat.getName());
-        holder.groupInfo.setText("ID: " + chat.getId());
+        holder.groupInfo.setText(String.format(java.util.Locale.getDefault(), "ID: %d", chat.getId()));
 
         holder.itemView.setOnClickListener(v -> {
             if (enabled) {
@@ -79,7 +77,7 @@ public class ConversationAdapter extends RecyclerView.Adapter<ConversationAdapte
         this.conversations = conversations;
     }
 
-    static class ConversationViewHolder extends RecyclerView.ViewHolder {
+    public static class ConversationViewHolder extends RecyclerView.ViewHolder {
         TextView groupName, groupInfo;
 
         public ConversationViewHolder(@NonNull View itemView) {

@@ -3,16 +3,16 @@ package com.example.tcpclient;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.window.OnBackInvokedDispatcher;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
@@ -40,12 +40,12 @@ public class ConversationActivity extends AppCompatActivity {
     public volatile List<Message> messages = new ArrayList<>();
     RecyclerView recyclerView;
     MessageAdapter messageAdapter;
-
     private int currentChatId = -1;
     private final Gson gson = new Gson();
     private ClientKeyManager keyManager;
     private String chatName;
     private int targetUserId;
+    private static final String TAG = "ConversationActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,12 +68,12 @@ public class ConversationActivity extends AppCompatActivity {
 
         TcpConnection.setContext(this);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-                    OnBackInvokedDispatcher.PRIORITY_DEFAULT,
-                    this::handleBackPress
-            );
-        }
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                handleBackPress();
+            }
+        });
 
         keyManager = new ClientKeyManager(this);
 
@@ -82,8 +82,6 @@ public class ConversationActivity extends AppCompatActivity {
         this.currentChatId = intent.getIntExtra("CHAT_ID", -1);
 
         this.targetUserId = intent.getIntExtra("TARGET_USER_ID", -1);
-
-        Log.e("MUIE", "CHAT ID FROM MAIN ACTIVITY " + currentChatId);
 
         TextView txtChatName = findViewById(R.id.txtChatName);
         if(chatName != null) txtChatName.setText(chatName);
@@ -119,6 +117,7 @@ public class ConversationActivity extends AppCompatActivity {
         runOnUiThread(() -> handlePacket(packet));
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     private void handlePacket(NetworkPacket packet) {
         try {
             SecretKey chatKey = keyManager.getKey(currentChatId);
@@ -135,7 +134,8 @@ public class ConversationActivity extends AppCompatActivity {
                                 String decryptedText = CryptoHelper.unpackAndDecrypt(chatKey, m.getContent());
                                 m.setContent(decryptedText.getBytes());
                             } catch (Exception e) {
-                                m.setContent("[Mesaj nedecriptabil]".getBytes());
+                                Log.e(TAG, "Decryption failed for history message ID: " + m.getId());
+                                m.setContent("[Decryption Error]".getBytes());
                             }
                         }
                         messages.addAll(history);
@@ -151,10 +151,11 @@ public class ConversationActivity extends AppCompatActivity {
                             String decryptedText = CryptoHelper.unpackAndDecrypt(chatKey, msg.getContent());
                             msg.setContent(decryptedText.getBytes());
                         } catch (Exception e) {
-                            msg.setContent("[Eroare decriptare]".getBytes());
+                            Log.e(TAG, "Decryption failed for new incoming message");
+                            msg.setContent("[Decryption Error]".getBytes());
                         }
                         messages.add(msg);
-                        messageAdapter.notifyDataSetChanged();
+                        messageAdapter.notifyItemInserted(messages.size() - 1);
                         scrollToBottom();
                     }
                     break;
@@ -169,8 +170,8 @@ public class ConversationActivity extends AppCompatActivity {
                                 messages.get(i).setContent(decryptedEdit.getBytes());
 
                             } catch (Exception e) {
-                                messages.get(i).setContent("[Eroare decriptare edit]".getBytes());
-                                e.printStackTrace();
+                                Log.e(TAG, "Failed to decrypt edited message", e);
+                                messages.get(i).setContent("[Decryption Error on Edit]".getBytes());
                             }
 
                             messageAdapter.notifyItemChanged(i);
@@ -184,7 +185,7 @@ public class ConversationActivity extends AppCompatActivity {
                     for (int i = 0; i < messages.size(); i++) {
                         if (messages.get(i).getId() == deletedId) {
                             messages.remove(i);
-                            messageAdapter.notifyDataSetChanged();
+                            messageAdapter.notifyItemRemoved(i);
                             break;
                         }
                     }
@@ -199,7 +200,7 @@ public class ConversationActivity extends AppCompatActivity {
                         for (Integer uid : memberIds) {
                             if (uid != myId) {
                                 this.targetUserId = uid;
-                                Log.d("APP", "✅ Am descarcat ID partener pt apel: " + targetUserId);
+                                Log.i(TAG, "Partner ID retrieved for calls: " + targetUserId);
                                 break;
                             }
                         }
@@ -213,7 +214,7 @@ public class ConversationActivity extends AppCompatActivity {
                 case ENTER_CHAT_RESPONSE: break;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "General error in handlePacket", e);
         }
     }
 
@@ -223,11 +224,10 @@ public class ConversationActivity extends AppCompatActivity {
 
         if (text.isEmpty()) return;
 
-
         try {
             SecretKey chatKey = keyManager.getKey(currentChatId);
             if (chatKey == null) {
-                Toast.makeText(this, "Lipsă cheie criptare! Handshake incomplet.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Key missing! Handshake incomplete.", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -239,7 +239,8 @@ public class ConversationActivity extends AppCompatActivity {
 
             messageBox.setText("");
         } catch (Exception e) {
-            Toast.makeText(this, "Eroare Criptare!", Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "Encryption failed for outgoing message", e);
+            Toast.makeText(this, "Encryption Error!", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -252,7 +253,8 @@ public class ConversationActivity extends AppCompatActivity {
             NetworkPacket packet = new NetworkPacket(PacketType.EDIT_MESSAGE_REQUEST, TcpConnection.getCurrentUserId(), dto);
             TcpConnection.sendPacket(packet);
         } catch (Exception e) {
-            Toast.makeText(this, "Fail Edit Message", Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "Failed to encrypt edit request", e);
+            Toast.makeText(this, "Edit Error!", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -286,10 +288,17 @@ public class ConversationActivity extends AppCompatActivity {
         }
     }
 
-    @SuppressLint({"GestureBackNavigation", "MissingSuperCall"})
-    @Override
-    public void onBackPressed() {
-        handleBackPress();
+    private ArrayAdapter<String> createDialogAdapter(String[] options) {
+        return new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, options) {
+            @NonNull
+            @Override
+            public View getView(int position, View convertView, @NonNull android.view.ViewGroup parent) {
+                View view = super.getView(position, convertView, parent);
+                TextView textView = view.findViewById(android.R.id.text1);
+                textView.setTextColor(Color.WHITE);
+                return view;
+            }
+        };
     }
 
     public void handleLongMessageClick(Message message) {
@@ -299,15 +308,7 @@ public class ConversationActivity extends AppCompatActivity {
         btnCancel.setSpan(new android.text.style.ForegroundColorSpan(Color.parseColor("#137fec")), 0, btnCancel.length(), 0);
 
         String[] options = {"Modify", "Delete"};
-        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, options) {
-            @Override
-            public View getView(int position, View convertView, android.view.ViewGroup parent) {
-                View view = super.getView(position, convertView, parent);
-                TextView textView = view.findViewById(android.R.id.text1);
-                textView.setTextColor(Color.WHITE);
-                return view;
-            }
-        };
+        ArrayAdapter<String> adapter = createDialogAdapter(options);
 
         new AlertDialog.Builder(ConversationActivity.this, R.style.DialogSmecher)
                 .setTitle("Options")
@@ -348,7 +349,7 @@ public class ConversationActivity extends AppCompatActivity {
 
     public void handleCall(View view) {
         if (targetUserId == -1) {
-            Toast.makeText(this, "Eroare: User necunoscut", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Error: Partner user unknown", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -362,8 +363,10 @@ public class ConversationActivity extends AppCompatActivity {
             String serverIp = TcpConnection.getSocket().getInetAddress().getHostAddress();
             intent.putExtra("SERVER_IP", serverIp);
         } catch (Exception e) {
-            intent.putExtra("SERVER_IP", "IP_UL_HARDCODAT_DACA_VREI");
-            Toast.makeText(this, "Eroare IP Server!", Toast.LENGTH_SHORT).show();
+            ConfigReader configReader = new ConfigReader(this);
+
+            intent.putExtra("SERVER_IP", configReader.getServerIp());
+            Toast.makeText(this, "Server IP retrieval error!", Toast.LENGTH_SHORT).show();
         }
 
         ChatDtos.CallRequestDto callDto = new ChatDtos.CallRequestDto(targetUserId, currentChatId);

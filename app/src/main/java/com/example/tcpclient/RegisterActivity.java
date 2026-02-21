@@ -170,12 +170,9 @@ public class RegisterActivity extends AppCompatActivity {
 
                         } catch (Exception e) {
                             Log.e(TAG, "Critical error generating keys", e);
-                            runOnUiThread(() -> {
-                                showSnackbar("Critical error generating keys: " + e.getMessage());
-                            });
+                            runOnUiThread(() -> showSnackbar("Critical error generating keys: " + e.getMessage()));
                         }
                     }).start();
-
                 }
             } else {
                 String errorMsg = gson.fromJson(payload, String.class);

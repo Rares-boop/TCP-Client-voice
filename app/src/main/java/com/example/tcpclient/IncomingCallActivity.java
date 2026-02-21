@@ -7,6 +7,7 @@ import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Vibrator;
+import android.util.Log;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -14,13 +15,13 @@ import chat.NetworkPacket;
 import chat.PacketType;
 
 public class IncomingCallActivity extends AppCompatActivity {
-
     private Ringtone ringtone;
     private Vibrator vibrator;
     private int callerId;
     private String callerName;
     private int chatId;
     private String serverIp;
+    private static final String TAG = "IncomingCallActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,7 +57,7 @@ public class IncomingCallActivity extends AppCompatActivity {
     private void handlePacketOnUI(NetworkPacket packet) {
         runOnUiThread(() -> {
             if (packet.getType() == PacketType.CALL_END) {
-                android.widget.Toast.makeText(this, "Apel anulat.", android.widget.Toast.LENGTH_SHORT).show();
+                android.widget.Toast.makeText(this, "Call cancelled by caller.", android.widget.Toast.LENGTH_SHORT).show();
 
                 stopRinging();
                 finish();
@@ -75,7 +76,7 @@ public class IncomingCallActivity extends AppCompatActivity {
                 vibrator.vibrate(pattern, 0);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "Failed to start ringtone or vibrator", e);
         }
     }
 

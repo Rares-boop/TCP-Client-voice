@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -13,10 +12,9 @@ import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.Toast;
-import android.window.OnBackInvokedCallback;
-import android.window.OnBackInvokedDispatcher;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
@@ -48,6 +46,7 @@ public class MainActivity extends AppCompatActivity {
     private List<String> pendingRawUsers;
     private int pendingChatTargetId = -1;
     private String pendingChatName = null;
+    private static final String TAG = "MainActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,16 +80,16 @@ public class MainActivity extends AppCompatActivity {
         );
         recyclerView.setAdapter(adapter);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            OnBackInvokedCallback callback = () -> {
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
                 if (dialog != null && dialog.isShowing()) {
-                    Toast.makeText(MainActivity.this, "Finalizează acțiunea înainte de a ieși!", Toast.LENGTH_SHORT).show();
-                    return;
+                    Toast.makeText(MainActivity.this, "Please finish the current action before exiting!", Toast.LENGTH_SHORT).show();
+                } else {
+                    handleLogout();
                 }
-                handleLogout();
-            };
-            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, callback);
-        }
+            }
+        });
 
         TcpConnection.startReading();
     }
@@ -112,6 +111,7 @@ public class MainActivity extends AppCompatActivity {
         runOnUiThread(() -> handlePacket(packet));
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     private void handlePacket(NetworkPacket packet) {
         switch (packet.getType()) {
             case GET_CHATS_RESPONSE:
@@ -124,7 +124,7 @@ public class MainActivity extends AppCompatActivity {
                     LocalStorage.setCurrentUserGroupChats(groupChats);
                     adapter.setGroupChats(groupChats);
                     adapter.notifyDataSetChanged();
-                } catch (Exception e) { e.printStackTrace(); }
+                } catch (Exception e) { Log.e(TAG, "Failed to parse chat list from server.", e); }
                 break;
 
             case GET_USERS_RESPONSE:
@@ -132,50 +132,41 @@ public class MainActivity extends AppCompatActivity {
                     Type userListType = new TypeToken<List<String>>(){}.getType();
                     List<String> serverList = gson.fromJson(packet.getPayload(), userListType);
                     updateSpinnerData(serverList);
-                } catch (Exception e) { e.printStackTrace(); }
+                } catch (Exception e) { Log.e(TAG, "Failed to parse users list.", e); }
                 break;
 
             case GET_BUNDLE_RESPONSE:
                 try {
                     ChatDtos.GetBundleResponseDto bundle = gson.fromJson(packet.getPayload(), ChatDtos.GetBundleResponseDto.class);
-
-                    // Verificam daca e raspunsul asteptat
                     if (bundle.targetUserId != pendingChatTargetId) break;
 
-                    // 1. Conversie String -> Chei Reale
                     java.security.PublicKey bobIdentityKey = chat.CryptoHelper.stringToDilithiumPublic(bundle.identityKeyPublic);
                     java.security.PublicKey bobPreKey = chat.CryptoHelper.stringToKyberPublic(bundle.signedPreKeyPublic);
                     byte[] bobSignature = android.util.Base64.decode(bundle.signature, android.util.Base64.NO_WRAP);
 
-                    // 2. Verificare Semnatura (Dilithium)
                     boolean isSigValid = chat.CryptoHelper.verifySignature(bobIdentityKey, bobPreKey.getEncoded(), bobSignature);
                     if (!isSigValid) {
-                        Toast.makeText(this, "⚠️ SECURITY ALERT: Semnatura invalida!", Toast.LENGTH_LONG).show();
+                        Toast.makeText(this, "SECURITY ALERT: Invalid signature!", Toast.LENGTH_LONG).show();
+                        Log.e(TAG, "SECURITY ALERT: Dilithium signature validation failed for target ID: " + pendingChatTargetId);
                         return;
                     }
 
-                    // 3. Generare Secret (Kyber Encapsulate)
                     chat.CryptoHelper.KEMResult kemResult = chat.CryptoHelper.encapsulate(bobPreKey);
-
                     String ciphertextBase64 = android.util.Base64.encodeToString(kemResult.wrappedKey, android.util.Base64.NO_WRAP);
-                    String mySecretBase64 = android.util.Base64.encodeToString(kemResult.aesKey.getEncoded(), android.util.Base64.NO_WRAP);
 
-                    // 4. Salvam secretul temporar in LocalStorage (ca sa il avem cand vine confirmarea)
-                    LocalStorage.pendingSecretKey = mySecretBase64;
+                    LocalStorage.pendingSecretKey = android.util.Base64.encodeToString(kemResult.aesKey.getEncoded(), android.util.Base64.NO_WRAP);
 
-                    // 5. Trimitem cererea de creare chat (+ Plicul pentru Bob)
                     ChatDtos.CreateGroupDto createDto = new ChatDtos.CreateGroupDto(pendingChatTargetId, pendingChatName, ciphertextBase64);
                     NetworkPacket createReq = new NetworkPacket(PacketType.CREATE_CHAT_REQUEST, TcpConnection.getCurrentUserId(), createDto);
                     TcpConnection.sendPacket(createReq);
 
                 } catch (Exception e) {
-                    e.printStackTrace();
-                    Toast.makeText(this, "Eroare Crypto: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "Critical Crypto error while processing Post-Quantum bundle.", e);
+                    Toast.makeText(this, "Crypto Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 }
                 break;
 
             case CREATE_CHAT_BROADCAST:
-                // Acum primim un DTO complex, nu direct GroupChat
                 ChatDtos.NewChatBroadcastDto broadcastDto = gson.fromJson(packet.getPayload(), ChatDtos.NewChatBroadcastDto.class);
                 GroupChat newChat = broadcastDto.groupInfo;
 
@@ -194,21 +185,18 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
 
-                // UI Update
                 if (!chatExistsInUI) {
                     LocalStorage.getCurrentUserGroupChats().add(0, newChat);
                     adapter.setGroupChats(LocalStorage.getCurrentUserGroupChats());
-                    adapter.notifyDataSetChanged();
+                    adapter.notifyItemInserted(0);
                     recyclerView.scrollToPosition(0);
-                    System.out.println("✅ [UI] Chat nou adaugat: " + newChat.getName());
+                    Log.i(TAG, "[UI] New chat successfully added: " + newChat.getName());
                 } else {
-                    System.out.println("⚠️ [UI] Chatul exista deja (venit prin GET_CHATS). Ignor adaugarea vizuala.");
+                    Log.w(TAG, "[UI] Chat already exists in UI. Ignoring visual add.");
                 }
 
-                // --- LOGICA SALVARE CHEIE ---
                 ClientKeyManager keyMgr = new ClientKeyManager(this);
 
-                // Daca am primit ciphertext -> SUNT BOB (Invitatul)
                 if (broadcastDto.keyCiphertext != null && !broadcastDto.keyCiphertext.isEmpty()) {
                     try {
                         byte[] cipherBytes = android.util.Base64.decode(broadcastDto.keyCiphertext, android.util.Base64.NO_WRAP);
@@ -221,14 +209,13 @@ public class MainActivity extends AppCompatActivity {
                         String keyBase64 = android.util.Base64.encodeToString(shared.getEncoded(), android.util.Base64.NO_WRAP);
 
                         keyMgr.saveKey(newChat.getId(), keyBase64);
-                        System.out.println("✅ [BOB] Cheie Post-Quantum salvata!");
-                    } catch (Exception e) { e.printStackTrace(); }
+                        Log.i(TAG, "[BOB] Post-Quantum Key saved successfully!");
+                    } catch (Exception e) { Log.e(TAG, "Error generating new chat or saving cryptographic key.", e); }
                 }
-                // Daca nu am primit ciphertext -> SUNT ALICE (Creatorul) -> Iau din pending
                 else if (LocalStorage.pendingSecretKey != null) {
                     keyMgr.saveKey(newChat.getId(), LocalStorage.pendingSecretKey);
-                    LocalStorage.pendingSecretKey = null; // Curatam
-                    System.out.println("✅ [ALICE] Cheie salvata!");
+                    LocalStorage.pendingSecretKey = null;
+                    Log.i(TAG, "[ALICE] Key saved successfully from pending state!");
                 }
                 break;
 
@@ -276,12 +263,6 @@ public class MainActivity extends AppCompatActivity {
         TcpConnection.sendPacket(packet);
     }
 
-//    private void performCreateChat(int targetId, String groupName) {
-//        ChatDtos.CreateGroupDto dto = new ChatDtos.CreateGroupDto(targetId, groupName);
-//        NetworkPacket req = new NetworkPacket(PacketType.CREATE_CHAT_REQUEST, TcpConnection.getCurrentUserId(), dto);
-//        TcpConnection.sendPacket(req);
-//    }
-
     private void performLogout() {
         NetworkPacket p = new NetworkPacket(PacketType.LOGOUT, TcpConnection.getCurrentUserId());
         TcpConnection.sendPacket(p);
@@ -317,39 +298,10 @@ public class MainActivity extends AppCompatActivity {
         setupSpinner(pendingSpinner, displayNames.toArray(new String[0]));
     }
 
-    @SuppressLint({"GestureBackNavigation", "MissingSuperCall"})
-    @Override
-    public void onBackPressed() {
-        if (dialog != null && dialog.isShowing()) {
-            Toast.makeText(this, "Finalizează acțiunea înainte de a ieși!", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        handleLogout();
-    }
-
     public void handleChatClick(GroupChat chat) {
         Intent intent = new Intent(this, ConversationActivity.class);
         intent.putExtra("CHAT_ID", chat.getId());
         intent.putExtra("CHAT_NAME", chat.getName());
-
-//        int myId = TcpConnection.getCurrentUserId();
-//        //de rezolvat asta cu current id
-//        int partnerId = 8;
-//
-//
-//        // Presupun ca GroupChat are o lista de membri (IDs).
-//        // Trebuie sa iteram prin ea si sa gasim ID-ul care NU este al nostru.
-////        if (chat.getMembers() != null) {
-////            for (Integer uid : chat.getMembers()) {
-////                if (uid != myId) {
-////                    partnerId = uid;
-////                    break; // L-am gasit pe celalalt
-////                }
-////            }
-////        }
-//
-//        // ATENTIE: Foloseste cheia "TARGET_USER_ID" ca sa o gaseasca ConversationActivity
-//        intent.putExtra("TARGET_USER_ID", partnerId);
 
         startActivity(intent);
     }
@@ -414,12 +366,10 @@ public class MainActivity extends AppCompatActivity {
                     if (index < 0 || index >= rawUserStrings.size()) { Toast.makeText(this, "No user selected!", Toast.LENGTH_SHORT).show(); adapter.setEnabled(true); return; }
                     String selectedRaw = rawUserStrings.get(index);
                     int targetId = Integer.parseInt(selectedRaw.split(",")[0]);
-//                    performCreateChat(targetId, groupName);
                     this.pendingChatTargetId = targetId;
                     this.pendingChatName = groupName;
 
-                    // 2. Cerem cheile lui Bob (Handshake)
-                    Toast.makeText(MainActivity.this, "Handshake: Cer cheile...", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Handshake: Requesting keys...", Toast.LENGTH_SHORT).show();
 
                     NetworkPacket packet = new NetworkPacket(PacketType.GET_BUNDLE_REQUEST, TcpConnection.getCurrentUserId(), new ChatDtos.GetBundleRequestDto(targetId));
                     TcpConnection.sendPacket(packet);
@@ -431,13 +381,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupSpinner(Spinner spinner, String[] items) {
-        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, items) {
-            @Override public View getView(int position, View convertView, android.view.ViewGroup parent) {
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, items) {
+            @NonNull
+            @Override public View getView(int position, View convertView, @NonNull android.view.ViewGroup parent) {
                 android.widget.TextView view = (android.widget.TextView) super.getView(position, convertView, parent);
                 view.setTextColor(Color.WHITE);
                 return view;
             }
-            @Override public View getDropDownView(int position, View convertView, android.view.ViewGroup parent) {
+            @Override public View getDropDownView(int position, View convertView, @NonNull android.view.ViewGroup parent) {
                 android.widget.TextView view = (android.widget.TextView) super.getDropDownView(position, convertView, parent);
                 view.setTextColor(Color.WHITE);
                 view.setBackgroundColor(Color.parseColor("#1c2630"));
@@ -482,12 +433,12 @@ public class MainActivity extends AppCompatActivity {
 
                 NetworkPacket resp = TcpConnection.readNextPacket();
 
-                if (resp.getType() == PacketType.LOGIN_RESPONSE) {
+                if (resp != null && resp.getType() == PacketType.LOGIN_RESPONSE) {
                     User user = gson.fromJson(resp.getPayload(), User.class);
                     if (user != null) {
                         TcpConnection.setCurrentUserId(user.getId());
                         runOnUiThread(() -> {
-                            Toast.makeText(this, "Reconectat automat!", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(this, "Auto-reconnected!", Toast.LENGTH_SHORT).show();
 
                             TcpConnection.startReading();
                             TcpConnection.setPacketListener(this::handlePacketOnUI);
@@ -497,7 +448,7 @@ public class MainActivity extends AppCompatActivity {
                 } else runOnUiThread(this::goToLogin);
 
             } catch (Exception e) {
-                e.printStackTrace();
+                Log.e(TAG, "Critical error during auto-reconnect sequence.", e);
                 runOnUiThread(this::goToLogin);
             }
         }).start();
