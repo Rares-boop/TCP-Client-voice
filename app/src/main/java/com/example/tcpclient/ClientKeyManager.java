@@ -3,6 +3,8 @@ package com.example.tcpclient;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Base64;
+import android.util.Log;
+
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 
@@ -11,15 +13,13 @@ import java.security.GeneralSecurityException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
-import chat.CryptoHelper;
-
 public class ClientKeyManager {
+    private static final String TAG = "ClientKeyManager";
     private static final String PREF_FILE_NAME = "secure_chat_keys";
     private static final String KEY_IK_PUB = "MY_IDENTITY_PUB_DILITHIUM";
     private static final String KEY_IK_PRIV = "MY_IDENTITY_PRIV_DILITHIUM";
     private static final String KEY_SPK_PUB = "MY_PREKEY_PUB_KYBER";
     private static final String KEY_SPK_PRIV = "MY_PREKEY_PRIV_KYBER";
-
     private SharedPreferences securePrefs;
 
     public ClientKeyManager(Context context) {
@@ -37,13 +37,9 @@ public class ClientKeyManager {
             );
 
         } catch (GeneralSecurityException | IOException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Failed to initialize secure prefs for KeyManager. Using fallback!", e);
             this.securePrefs = context.getSharedPreferences(PREF_FILE_NAME, Context.MODE_PRIVATE);
         }
-    }
-
-    public boolean hasKey(int chatId) {
-        return securePrefs.contains(String.valueOf(chatId));
     }
 
     public void saveKey(int chatId, String base64Key) {
@@ -57,20 +53,6 @@ public class ClientKeyManager {
         byte[] decoded = Base64.decode(base64, Base64.NO_WRAP);
         return new SecretKeySpec(decoded, "AES");
     }
-
-    public String generateAndSaveKey(int chatId) {
-        try {
-            SecretKey key = CryptoHelper.generateAESKey(256);
-            String base64 = Base64.encodeToString(key.getEncoded(), Base64.NO_WRAP);
-
-            saveKey(chatId, base64);
-            return base64;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
     public void saveMyIdentityKeys(String ikPub, String ikPriv, String spkPub, String spkPriv) {
         securePrefs.edit()
                 .putString(KEY_IK_PUB, ikPub)
@@ -79,28 +61,7 @@ public class ClientKeyManager {
                 .putString(KEY_SPK_PRIV, spkPriv)
                 .apply();
     }
-
-    public boolean hasIdentity() {
-        return securePrefs.contains(KEY_IK_PRIV) && securePrefs.contains(KEY_SPK_PRIV);
-    }
-
-    public String getMyIdentityPublicKey() {
-        return securePrefs.getString(KEY_IK_PUB, null);
-    }
-
-    public String getMyIdentityPrivateKey() {
-        return securePrefs.getString(KEY_IK_PRIV, null);
-    }
-
-    public String getMyPreKeyPublicKey() {
-        return securePrefs.getString(KEY_SPK_PUB, null);
-    }
-
     public String getMyPreKeyPrivateKey() {
         return securePrefs.getString(KEY_SPK_PRIV, null);
-    }
-
-    public void clearAll() {
-        securePrefs.edit().clear().apply();
     }
 }

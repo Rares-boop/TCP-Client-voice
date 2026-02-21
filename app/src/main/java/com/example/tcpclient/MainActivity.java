@@ -43,9 +43,7 @@ public class MainActivity extends AppCompatActivity {
     RecyclerView recyclerView;
     ConversationAdapter adapter;
     private final Gson gson = new Gson();
-
     AlertDialog dialog;
-
     private Spinner pendingSpinner;
     private List<String> pendingRawUsers;
     private int pendingChatTargetId = -1;
@@ -487,7 +485,6 @@ public class MainActivity extends AppCompatActivity {
                 if (resp.getType() == PacketType.LOGIN_RESPONSE) {
                     User user = gson.fromJson(resp.getPayload(), User.class);
                     if (user != null) {
-                        TcpConnection.setCurrentUser(user);
                         TcpConnection.setCurrentUserId(user.getId());
                         runOnUiThread(() -> {
                             Toast.makeText(this, "Reconectat automat!", Toast.LENGTH_SHORT).show();

@@ -121,7 +121,6 @@ public class RegisterActivity extends AppCompatActivity {
                 User user = gson.fromJson(payload, User.class);
 
                 if (user != null && user.getUsername() != null) {
-                    TcpConnection.setCurrentUser(user);
                     TcpConnection.setCurrentUserId(user.getId());
 
                     SharedPreferences.Editor editor = preferences.edit();

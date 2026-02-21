@@ -113,7 +113,6 @@ public class LoginActivity extends AppCompatActivity {
                 User user = gson.fromJson(payload, User.class);
 
                 if (user != null && user.getUsername() != null) {
-                    TcpConnection.setCurrentUser(user);
                     TcpConnection.setCurrentUserId(user.getId());
 
                     SharedPreferences.Editor editor = preferences.edit();
@@ -166,7 +165,6 @@ public class LoginActivity extends AppCompatActivity {
                         try {
                             if (response.getPayload().isJsonObject()) {
                                 User user = gson.fromJson(response.getPayload(), User.class);
-                                TcpConnection.setCurrentUser(user);
                                 TcpConnection.setCurrentUserId(user.getId());
 
                                 Intent intent = new Intent(LoginActivity.this, MainActivity.class);

@@ -24,15 +24,14 @@ import chat.ChatDtos;
 import chat.CryptoHelper;
 import chat.NetworkPacket;
 import chat.PacketType;
-import chat.User;
 
 public class TcpConnection {
     public static Socket socket;
-    private static User currentUser;
     private static int currentUserId;
-
     private static SecretKey sessionKey = null;
     private static Context appContext;
+    private static final String TAG = "TcpConnection";
+    private static final Object writeLock = new Object();
 
     static {
         Security.removeProvider("BC");
@@ -47,7 +46,7 @@ public class TcpConnection {
 
     public static void setPacketListener(PacketListener listener) {
         currentListener = listener;
-        Log.d("TCP", "Listener setat: " + (listener == null ? "NULL" : listener.getClass().getSimpleName()));
+        Log.d(TAG, "Packet listener set: " + (listener == null ? "NULL" : listener.getClass().getSimpleName()));
     }
 
     public static void setContext(Context context) {
@@ -59,13 +58,13 @@ public class TcpConnection {
         isReading = true;
 
         readingThread = new Thread(() -> {
-            Log.d("TCP", "Listener Thread PORNIT.");
+            Log.d(TAG, "Network reading thread STARTED.");
             try {
                 while (isReading && socket != null && !socket.isClosed()) {
                     NetworkPacket packet = readNextPacket();
 
                     if (packet == null) {
-                        Log.e("TCP", "Pachet NULL. Conexiune moarta.");
+                        Log.e(TAG, "Received NULL packet. Connection is likely dead.");
                         close();
                         break;
                     }
@@ -78,11 +77,11 @@ public class TcpConnection {
                     if (currentListener != null) {
                         currentListener.onPacketReceived(packet);
                     } else {
-                        Log.w("TCP", "Pachet ignorat (niciun listener activ): " + packet.getType());
+                        Log.w(TAG, "Packet ignored (no active listener for type): " + packet.getType());
                     }
                 }
             } catch (Exception e) {
-                Log.e("TCP", "Eroare Reading Thread: " + e.getMessage());
+                Log.e(TAG, "Critical error in reading thread", e);
                 close();
             }
         });
@@ -97,12 +96,18 @@ public class TcpConnection {
         ChatDtos.CallRequestDto incomingDto = new Gson().fromJson(packet.getPayload(), ChatDtos.CallRequestDto.class);
         int foundChatId = incomingDto.chatId;
 
-        Log.d("TCP", "📞 Incoming Call de la " + callerId + ". Chat ID gasit: " + foundChatId);
+        Log.d(TAG, "Incoming Call from " + callerId + ". Chat ID found: " + foundChatId);
 
         String serverIp = "127.0.0.1";
         try {
-            if (socket != null) serverIp = socket.getInetAddress().getHostAddress();
-        } catch (Exception e) {}
+            if (socket != null) {
+                serverIp = socket.getInetAddress().getHostAddress();
+            }
+            else{
+                ConfigReader configReader = new ConfigReader(appContext);
+                serverIp = configReader.getServerIp();
+            }
+        } catch (Exception e) {Log.w(TAG, "Failed to resolve server IP for call UI.");}
 
         Intent intent = new Intent(appContext, IncomingCallActivity.class);
 
@@ -118,6 +123,9 @@ public class TcpConnection {
 
     public static void stopReading() {
         isReading = false;
+        if(readingThread != null){
+            readingThread.interrupt();
+        }
     }
 
     public static void connect(String host, int port) throws Exception {
@@ -130,14 +138,14 @@ public class TcpConnection {
 
         if (!performHandshake()) {
             close();
-            throw new Exception("Handshake Server Esuat!");
+            throw new Exception("Handshake with server failed!");
         }
     }
     private static PrintWriter out;
     private static BufferedReader in;
     private static boolean performHandshake() {
         try {
-            Log.d("TCP", "Start Handshake...");
+            Log.d(TAG, "Starting secure handshake...");
 
             String jsonHello = in.readLine();
             if(jsonHello==null){
@@ -163,23 +171,23 @@ public class TcpConnection {
                 sessionKey = CryptoHelper.combineSecrets(ecSecret, kyberRes.aesKey.getEncoded());
 
                 String kyberCipherB64 = Base64.encodeToString(kyberRes.wrappedKey, Base64.NO_WRAP);
-                String myECPubB64     = Base64.encodeToString(myECPair.getPublic().getEncoded(), Base64.NO_WRAP);
+                String myECPubB64 = Base64.encodeToString(myECPair.getPublic().getEncoded(), Base64.NO_WRAP);
 
                 String responsePayload = kyberCipherB64 + ":" + myECPubB64;
 
                 NetworkPacket finishPacket = new NetworkPacket(PacketType.KYBER_CLIENT_FINISH, 0, responsePayload);
 
-                synchronized (out) {
+                synchronized (writeLock) {
                     out.println(finishPacket.toJson());
                     out.flush();
                 }
 
-                Log.d("TCP", "Handshake OK! Tunel AES activ.");
+                Log.d(TAG, "Handshake complete. AES tunnel established.");
                 return true;
             }
             return false;
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "Handshake failed unexpectedly", e);
             return false;
         }
     }
@@ -187,28 +195,28 @@ public class TcpConnection {
     public static void sendPacket(NetworkPacket packet) {
         new Thread(() -> {
             try {
-                if (socket != null && !socket.isClosed()) {
+                synchronized (writeLock) {
+                    if (socket != null && !socket.isClosed()) {
 
-                    if (sessionKey != null) {
-                        String clearJson = packet.toJson();
-                        byte[] encryptedBytes = CryptoHelper.encryptAndPack(sessionKey, clearJson);
-                        String encryptedBase64 = Base64.encodeToString(encryptedBytes, Base64.NO_WRAP);
+                        if (sessionKey != null) {
+                            String clearJson = packet.toJson();
+                            byte[] encryptedBytes = CryptoHelper.encryptAndPack(sessionKey, clearJson);
+                            String encryptedBase64 = Base64.encodeToString(encryptedBytes, Base64.NO_WRAP);
 
-                        NetworkPacket envelope = new NetworkPacket(PacketType.SECURE_ENVELOPE, currentUserId, encryptedBase64);
+                            NetworkPacket envelope = new NetworkPacket(PacketType.SECURE_ENVELOPE, currentUserId, encryptedBase64);
 
-                        synchronized (out) {
                             out.println(envelope.toJson());
                             out.flush();
-                        }
-                    } else {
-                        synchronized (out) {
+
+                        } else {
                             out.println(packet.toJson());
                             out.flush();
+
                         }
                     }
                 }
             } catch (Exception e) {
-                Log.e("TCP", "Send Error: " + e.getMessage());
+                Log.e(TAG, "Failed to send packet of type: " + packet.getType(), e);
             }
         }).start();
     }
@@ -230,7 +238,7 @@ public class TcpConnection {
                 String originalJson = CryptoHelper.unpackAndDecrypt(sessionKey, packedBytes);
                 packet = NetworkPacket.fromJson(originalJson);
             } catch (Exception e) {
-                Log.e("TCP", "Eroare decriptare Tunel!");
+                Log.e(TAG, "Tunnel decryption failed for secure envelope.", e);
                 throw e;
             }
         }
@@ -245,24 +253,17 @@ public class TcpConnection {
             if (out != null) out.close();
             if (in != null) in.close();
             if (socket != null) socket.close();
-            Log.d("TCP", "Socket inchis.");
+            Log.i(TAG, "TCP Connection closed and resources released.");
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Error during connection shutdown", e);
         }
     }
-
-    public static void setCurrentUser(User user) {
-        currentUser = user;
-    }
-
     public static void setCurrentUserId(int id) {
         currentUserId = id;
     }
-
     public static int getCurrentUserId() {
         return currentUserId;
     }
-
     public static java.net.Socket getSocket() {
         return socket;
     }
