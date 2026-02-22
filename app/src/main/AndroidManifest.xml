@@ -17,23 +17,23 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.TCPClient">
         <activity
-            android:name=".IncomingCallActivity"
+            android:name=".ui.activities.IncomingCallActivity"
             android:exported="false" />
         <activity
-            android:name=".CallActivity"
+            android:name=".ui.activities.CallActivity"
             android:theme="@style/Theme.AppCompat.NoActionBar" />
         <activity
-            android:name=".RegisterActivity"
+            android:name=".ui.activities.RegisterActivity"
             android:exported="false" />
         <activity
-            android:name=".ConversationActivity"
+            android:name=".ui.activities.ConversationActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustPan|stateHidden" />
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.activities.MainActivity"
             android:exported="false" />
         <activity
-            android:name=".LoginActivity"
+            android:name=".ui.activities.LoginActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

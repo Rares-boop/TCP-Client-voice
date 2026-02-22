@@ -12,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="24dp"
-        tools:context=".LoginActivity">
+        tools:context=".ui.activities.LoginActivity">
 
         <ImageView
             android:id="@+id/logoIcon"

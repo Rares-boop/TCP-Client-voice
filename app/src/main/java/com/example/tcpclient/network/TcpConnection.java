@@ -1,10 +1,12 @@
-package com.example.tcpclient;
+package com.example.tcpclient.network;
 
 import android.content.Context;
 import android.content.Intent;
 import android.util.Base64;
 import android.util.Log;
 
+import com.example.tcpclient.utils.ConfigReader;
+import com.example.tcpclient.ui.activities.IncomingCallActivity;
 import com.google.gson.Gson;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;

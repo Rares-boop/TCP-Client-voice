@@ -1,4 +1,4 @@
-package com.example.tcpclient;
+package com.example.tcpclient.ui.activities;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
@@ -21,6 +21,11 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.tcpclient.utils.ClientKeyManager;
+import com.example.tcpclient.utils.ConfigReader;
+import com.example.tcpclient.ui.adapters.MessageAdapter;
+import com.example.tcpclient.R;
+import com.example.tcpclient.network.TcpConnection;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 

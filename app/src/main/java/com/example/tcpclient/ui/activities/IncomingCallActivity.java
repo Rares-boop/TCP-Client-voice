@@ -1,4 +1,4 @@
-package com.example.tcpclient;
+package com.example.tcpclient.ui.activities;
 
 import android.content.Context;
 import android.content.Intent;
@@ -10,6 +10,9 @@ import android.os.Vibrator;
 import android.util.Log;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.example.tcpclient.R;
+import com.example.tcpclient.network.TcpConnection;
 
 import chat.network.NetworkPacket;
 import chat.network.PacketType;
@@ -46,13 +49,13 @@ public class IncomingCallActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        com.example.tcpclient.TcpConnection.setPacketListener(this::handlePacketOnUI);
+        TcpConnection.setPacketListener(this::handlePacketOnUI);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        com.example.tcpclient.TcpConnection.setPacketListener(null);
+        TcpConnection.setPacketListener(null);
     }
 
     private void handlePacketOnUI(NetworkPacket packet) {
@@ -99,7 +102,7 @@ public class IncomingCallActivity extends AppCompatActivity {
         intent.putExtra("CHAT_ID", chatId);
         intent.putExtra("USERNAME", callerName);
         intent.putExtra("SERVER_IP", serverIp);
-        intent.putExtra("MY_USER_ID", com.example.tcpclient.TcpConnection.getCurrentUserId());
+        intent.putExtra("MY_USER_ID", TcpConnection.getCurrentUserId());
 
         startActivity(intent);
         finish();
@@ -113,8 +116,8 @@ public class IncomingCallActivity extends AppCompatActivity {
     }
 
     private void sendTcpResponse(PacketType type) {
-        com.example.tcpclient.TcpConnection.sendPacket(
-                new NetworkPacket(type, com.example.tcpclient.TcpConnection.getCurrentUserId(), callerId)
+        TcpConnection.sendPacket(
+                new NetworkPacket(type, TcpConnection.getCurrentUserId(), callerId)
         );
     }
 

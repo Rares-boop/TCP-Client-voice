@@ -1,4 +1,4 @@
-package com.example.tcpclient;
+package com.example.tcpclient.ui.activities;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -16,6 +16,11 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.example.tcpclient.utils.ClientKeyManager;
+import com.example.tcpclient.utils.ConfigReader;
+import com.example.tcpclient.R;
+import com.example.tcpclient.storage.SecureStorage;
+import com.example.tcpclient.network.TcpConnection;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;

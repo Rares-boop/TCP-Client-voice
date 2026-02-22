@@ -1,4 +1,4 @@
-package com.example.tcpclient;
+package com.example.tcpclient.utils;
 
 import android.content.Context;
 import android.content.SharedPreferences;

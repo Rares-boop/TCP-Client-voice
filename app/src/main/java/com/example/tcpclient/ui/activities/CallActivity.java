@@ -1,9 +1,14 @@
-package com.example.tcpclient;
+package com.example.tcpclient.ui.activities;
 
 import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.example.tcpclient.utils.ClientKeyManager;
+import com.example.tcpclient.R;
+import com.example.tcpclient.network.VoiceCallManager;
+import com.example.tcpclient.network.TcpConnection;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import javax.crypto.SecretKey;
@@ -44,13 +49,13 @@ public class CallActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        com.example.tcpclient.TcpConnection.setPacketListener(this::handlePacketOnUI);
+        TcpConnection.setPacketListener(this::handlePacketOnUI);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        com.example.tcpclient.TcpConnection.setPacketListener(null);
+        TcpConnection.setPacketListener(null);
     }
 
     @SuppressLint("SetTextI18n")
@@ -94,7 +99,7 @@ public class CallActivity extends AppCompatActivity {
     }
 
     private void hangUp() {
-        com.example.tcpclient.TcpConnection.sendPacket(new NetworkPacket(PacketType.CALL_END, com.example.tcpclient.TcpConnection.getCurrentUserId(), targetUserId));
+        TcpConnection.sendPacket(new NetworkPacket(PacketType.CALL_END, TcpConnection.getCurrentUserId(), targetUserId));
         closeCallScreen();
     }
 

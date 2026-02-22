@@ -1,4 +1,4 @@
-package com.example.tcpclient;
+package com.example.tcpclient.storage;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -1,4 +1,4 @@
-package com.example.tcpclient;
+package com.example.tcpclient.network;
 
 import android.Manifest;
 import android.content.Context;
