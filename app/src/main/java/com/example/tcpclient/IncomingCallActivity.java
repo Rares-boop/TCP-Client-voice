@@ -11,8 +11,9 @@ import android.util.Log;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
-import chat.NetworkPacket;
-import chat.PacketType;
+import chat.network.NetworkPacket;
+import chat.network.PacketType;
+
 
 public class IncomingCallActivity extends AppCompatActivity {
     private Ringtone ringtone;

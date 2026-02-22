@@ -8,6 +8,9 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import javax.crypto.SecretKey;
 
+import chat.network.NetworkPacket;
+import chat.network.PacketType;
+
 public class CallActivity extends AppCompatActivity {
     private VoiceCallManager voiceManager;
     private int targetUserId;
@@ -51,17 +54,17 @@ public class CallActivity extends AppCompatActivity {
     }
 
     @SuppressLint("SetTextI18n")
-    private void handlePacketOnUI(chat.NetworkPacket packet) {
+    private void handlePacketOnUI(NetworkPacket packet) {
         runOnUiThread(() -> {
-            if (packet.getType() == chat.PacketType.CALL_END) {
+            if (packet.getType() == PacketType.CALL_END) {
                 android.widget.Toast.makeText(this, "Call ended by partner.", android.widget.Toast.LENGTH_SHORT).show();
                 closeCallScreen();
             }
-            else if (packet.getType() == chat.PacketType.CALL_DENY) {
+            else if (packet.getType() == PacketType.CALL_DENY) {
                 android.widget.Toast.makeText(this, "Call declined (Busy).", android.widget.Toast.LENGTH_SHORT).show();
                 closeCallScreen();
             }
-            else if (packet.getType() == chat.PacketType.CALL_ACCEPT) {
+            else if (packet.getType() == PacketType.CALL_ACCEPT) {
                 TextView txtStatus = findViewById(R.id.txtCallStatus);
                 txtStatus.setText("Connected");
             }
@@ -91,7 +94,7 @@ public class CallActivity extends AppCompatActivity {
     }
 
     private void hangUp() {
-        com.example.tcpclient.TcpConnection.sendPacket(new chat.NetworkPacket(chat.PacketType.CALL_END, com.example.tcpclient.TcpConnection.getCurrentUserId(), targetUserId));
+        com.example.tcpclient.TcpConnection.sendPacket(new NetworkPacket(PacketType.CALL_END, com.example.tcpclient.TcpConnection.getCurrentUserId(), targetUserId));
         closeCallScreen();
     }
 

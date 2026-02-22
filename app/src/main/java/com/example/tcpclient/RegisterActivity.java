@@ -22,11 +22,12 @@ import com.google.gson.JsonElement;
 
 import java.security.KeyPair;
 
-import chat.ChatDtos;
-import chat.CryptoHelper;
-import chat.NetworkPacket;
-import chat.PacketType;
-import chat.User;
+import chat.models.User;
+import chat.network.ChatDtos;
+import chat.network.NetworkPacket;
+import chat.network.PacketType;
+import chat.security.CryptoHelper;
+
 
 public class RegisterActivity extends AppCompatActivity {
     private ConfigReader config;

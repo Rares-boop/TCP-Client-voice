@@ -20,7 +20,11 @@ import com.google.android.material.snackbar.Snackbar;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 
-import chat.*;
+import chat.models.User;
+import chat.network.ChatDtos;
+import chat.network.NetworkPacket;
+import chat.network.PacketType;
+
 
 public class LoginActivity extends AppCompatActivity {
     private ConfigReader config;

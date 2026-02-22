@@ -17,7 +17,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-import chat.Message;
+import chat.models.Message;
+
 
 public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHolder> {
     private final List<Message> messages;

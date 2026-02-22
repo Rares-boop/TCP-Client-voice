@@ -31,11 +31,13 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
-import chat.ChatDtos;
-import chat.GroupChat;
-import chat.NetworkPacket;
-import chat.PacketType;
-import chat.User;
+import chat.models.GroupChat;
+import chat.models.User;
+import chat.network.ChatDtos;
+import chat.network.NetworkPacket;
+import chat.network.PacketType;
+import chat.security.CryptoHelper;
+
 
 public class MainActivity extends AppCompatActivity {
     RecyclerView recyclerView;
@@ -140,18 +142,18 @@ public class MainActivity extends AppCompatActivity {
                     ChatDtos.GetBundleResponseDto bundle = gson.fromJson(packet.getPayload(), ChatDtos.GetBundleResponseDto.class);
                     if (bundle.targetUserId != pendingChatTargetId) break;
 
-                    java.security.PublicKey bobIdentityKey = chat.CryptoHelper.stringToDilithiumPublic(bundle.identityKeyPublic);
-                    java.security.PublicKey bobPreKey = chat.CryptoHelper.stringToKyberPublic(bundle.signedPreKeyPublic);
+                    java.security.PublicKey bobIdentityKey = CryptoHelper.stringToDilithiumPublic(bundle.identityKeyPublic);
+                    java.security.PublicKey bobPreKey = CryptoHelper.stringToKyberPublic(bundle.signedPreKeyPublic);
                     byte[] bobSignature = android.util.Base64.decode(bundle.signature, android.util.Base64.NO_WRAP);
 
-                    boolean isSigValid = chat.CryptoHelper.verifySignature(bobIdentityKey, bobPreKey.getEncoded(), bobSignature);
+                    boolean isSigValid = CryptoHelper.verifySignature(bobIdentityKey, bobPreKey.getEncoded(), bobSignature);
                     if (!isSigValid) {
                         Toast.makeText(this, "SECURITY ALERT: Invalid signature!", Toast.LENGTH_LONG).show();
                         Log.e(TAG, "SECURITY ALERT: Dilithium signature validation failed for target ID: " + pendingChatTargetId);
                         return;
                     }
 
-                    chat.CryptoHelper.KEMResult kemResult = chat.CryptoHelper.encapsulate(bobPreKey);
+                    CryptoHelper.KEMResult kemResult = CryptoHelper.encapsulate(bobPreKey);
                     String ciphertextBase64 = android.util.Base64.encodeToString(kemResult.wrappedKey, android.util.Base64.NO_WRAP);
 
                     LocalStorage.pendingSecretKey = android.util.Base64.encodeToString(kemResult.aesKey.getEncoded(), android.util.Base64.NO_WRAP);
@@ -202,10 +204,10 @@ public class MainActivity extends AppCompatActivity {
                         byte[] cipherBytes = android.util.Base64.decode(broadcastDto.keyCiphertext, android.util.Base64.NO_WRAP);
 
                         String myPrivStr = keyMgr.getMyPreKeyPrivateKey();
-                        java.security.PrivateKey myPriv = chat.CryptoHelper.stringToKyberPrivate(myPrivStr);
+                        java.security.PrivateKey myPriv = CryptoHelper.stringToKyberPrivate(myPrivStr);
 
                         // Decapsulate
-                        javax.crypto.SecretKey shared = chat.CryptoHelper.decapsulate(myPriv, cipherBytes);
+                        javax.crypto.SecretKey shared = CryptoHelper.decapsulate(myPriv, cipherBytes);
                         String keyBase64 = android.util.Base64.encodeToString(shared.getEncoded(), android.util.Base64.NO_WRAP);
 
                         keyMgr.saveKey(newChat.getId(), keyBase64);

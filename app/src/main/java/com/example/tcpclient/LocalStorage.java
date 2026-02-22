@@ -3,7 +3,8 @@ package com.example.tcpclient;
 import java.util.ArrayList;
 import java.util.List;
 
-import chat.GroupChat;
+import chat.models.GroupChat;
+
 
 public class LocalStorage {
     public static List<GroupChat> currentUserGroupChats = new ArrayList<>();

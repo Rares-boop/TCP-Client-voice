@@ -20,10 +20,11 @@ import java.security.Security;
 
 import javax.crypto.SecretKey;
 
-import chat.ChatDtos;
-import chat.CryptoHelper;
-import chat.NetworkPacket;
-import chat.PacketType;
+import chat.network.ChatDtos;
+import chat.network.NetworkPacket;
+import chat.network.PacketType;
+import chat.security.CryptoHelper;
+
 
 public class TcpConnection {
     public static Socket socket;

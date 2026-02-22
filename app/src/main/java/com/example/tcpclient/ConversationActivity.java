@@ -30,11 +30,12 @@ import java.util.List;
 
 import javax.crypto.SecretKey;
 
-import chat.ChatDtos;
-import chat.CryptoHelper;
-import chat.Message;
-import chat.NetworkPacket;
-import chat.PacketType;
+import chat.models.Message;
+import chat.network.ChatDtos;
+import chat.network.NetworkPacket;
+import chat.network.PacketType;
+import chat.security.CryptoHelper;
+
 
 public class ConversationActivity extends AppCompatActivity {
     public volatile List<Message> messages = new ArrayList<>();
